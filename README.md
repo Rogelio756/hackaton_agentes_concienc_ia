@@ -3,6 +3,13 @@
 
 > Hackathon ConciencIA · Equipo AquaInfer · 2026
 
+## 🚀 API en producción
+```
+https://hackatonagentesconciencia-production.up.railway.app/predict
+https://hackatonagentesconciencia-production.up.railway.app/health
+https://hackatonagentesconciencia-production.up.railway.app/zonas
+```
+
 ---
 
 ## ¿Qué es?
