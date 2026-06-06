@@ -1,4 +1,4 @@
-# AquaInfer CDMX 💧
+# FoodSense CDMX 💧
 **Sistema de predicción de riesgos de inundación urbana — Ciudad de México**
 
 > Hackathon ConciencIA · Equipo AquaInfer · 2026
@@ -120,4 +120,4 @@ Abrir: http://localhost:8000/predict
 
 ## Equipo
 
-Hackathon ConciencIA 2026 — Equipo AquaInfer CDMX
+Hackathon ConciencIA 2026 — Equipo FoodSense CDMX
