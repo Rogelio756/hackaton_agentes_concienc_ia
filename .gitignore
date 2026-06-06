@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+.env
+live_state_v2.json
+*.log

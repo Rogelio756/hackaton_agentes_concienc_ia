@@ -1,0 +1,49 @@
+{
+  "modelo": "XGBoostClassifier",
+  "version": "v2_forecasting_t+1",
+  "descripcion": "Predice si habra lluvia intensa (>=10mm) el dia siguiente",
+  "roc_auc": 0.8595,
+  "year_split": 2000,
+  "features": [
+    "MONTH",
+    "DAY",
+    "RAINFALL",
+    "MAXT",
+    "MINT",
+    "rain_3d",
+    "rain_7d",
+    "rain_30d",
+    "temporada_lluvias",
+    "riesgo_precip_max",
+    "riesgo_precip_mean",
+    "alcaldia_encoded"
+  ],
+  "target": "lluvia_intensa_t1",
+  "train_size": 475834,
+  "test_size": 115856,
+  "scale_pos_weight": 12.31,
+  "confusion_matrix": {
+    "TN": 81670,
+    "FP": 25451,
+    "FN": 1817,
+    "TP": 6918
+  },
+  "clases": {
+    "0_no_intensa_manana": 547200,
+    "1_intensa_manana": 44490
+  },
+  "feature_importance": {
+    "temporada_lluvias": 0.4343000054359436,
+    "rain_3d": 0.27320000529289246,
+    "RAINFALL": 0.09939999878406525,
+    "rain_7d": 0.08510000258684158,
+    "MONTH": 0.025599999353289604,
+    "rain_30d": 0.017899999395012856,
+    "riesgo_precip_mean": 0.014100000262260437,
+    "alcaldia_encoded": 0.01140000019222498,
+    "MINT": 0.010400000028312206,
+    "riesgo_precip_max": 0.00989999994635582,
+    "DAY": 0.009600000455975533,
+    "MAXT": 0.009100000374019146
+  }
+}

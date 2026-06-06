@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AquaInfer CDMX — Dashboard de Riesgo</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
+      min-height: 100vh;
+    }
+
+    header {
+      background: linear-gradient(135deg, #1a3a5c 0%, #0d2137 100%);
+      padding: 24px 32px;
+      border-bottom: 2px solid #1f6feb;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    header h1 { font-size: 1.6rem; color: #58a6ff; letter-spacing: 1px; }
+    header h1 span { color: #e6edf3; }
+    header .meta { font-size: 0.8rem; color: #8b949e; text-align: right; }
+    header .meta strong { color: #58a6ff; }
+
+    .badge-live {
+      display: inline-block;
+      background: #238636;
+      color: #fff;
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: 20px;
+      margin-left: 10px;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.5; }
+    }
+
+    .container { max-width: 1200px; margin: 0 auto; padding: 32px 24px; }
+
+    /* KPIs */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .kpi {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .kpi .value { font-size: 2rem; font-weight: bold; }
+    .kpi .label { font-size: 0.75rem; color: #8b949e; margin-top: 4px; text-transform: uppercase; letter-spacing: 1px; }
+    .kpi.red   .value { color: #f85149; }
+    .kpi.orange .value { color: #d29922; }
+    .kpi.yellow .value { color: #e3b341; }
+    .kpi.green  .value { color: #3fb950; }
+    .kpi.blue   .value { color: #58a6ff; }
+
+    /* Tabla */
+    .section-title {
+      font-size: 1rem;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 16px;
+      border-left: 3px solid #1f6feb;
+      padding-left: 12px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #161b22;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 32px;
+    }
+
+    thead tr { background: #1c2128; }
+    th {
+      padding: 12px 16px;
+      text-align: left;
+      font-size: 0.75rem;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      cursor: pointer;
+      user-select: none;
+    }
+    th:hover { color: #58a6ff; }
+
+    tbody tr {
+      border-top: 1px solid #21262d;
+      transition: background 0.15s;
+    }
+    tbody tr:hover { background: #1c2128; }
+
+    td { padding: 12px 16px; font-size: 0.9rem; }
+
+    .alcaldia-name { font-weight: 600; color: #e6edf3; }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .badge.muy-alto   { background: #f851491a; color: #f85149; border: 1px solid #f85149; }
+    .badge.alto       { background: #d299221a; color: #d29922; border: 1px solid #d29922; }
+    .badge.medio      { background: #e3b3411a; color: #e3b341; border: 1px solid #e3b341; }
+    .badge.bajo       { background: #3fb9501a; color: #3fb950; border: 1px solid #3fb950; }
+    .badge.muy-bajo   { background: #58a6ff1a; color: #58a6ff; border: 1px solid #58a6ff; }
+
+    .lluvia-icon { margin-right: 4px; }
+
+    /* Barra de riesgo */
+    .risk-bar-bg {
+      background: #21262d;
+      border-radius: 4px;
+      height: 6px;
+      width: 100px;
+      display: inline-block;
+      vertical-align: middle;
+    }
+    .risk-bar-fill {
+      height: 6px;
+      border-radius: 4px;
+    }
+
+    /* Prob meter */
+    .prob-text { font-size: 0.85rem; }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 24px;
+      color: #484f58;
+      font-size: 0.75rem;
+      border-top: 1px solid #21262d;
+      margin-top: 16px;
+    }
+
+    .alerta-box {
+      background: #f851491a;
+      border: 1px solid #f85149;
+      border-radius: 10px;
+      padding: 16px 20px;
+      margin-bottom: 32px;
+    }
+    .alerta-box h3 { color: #f85149; margin-bottom: 8px; font-size: 0.9rem; }
+    .alerta-box ul { padding-left: 20px; font-size: 0.85rem; color: #e6edf3; }
+    .alerta-box ul li { margin-bottom: 4px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>💧 Aqua<span>Infer</span> CDMX <span class="badge-live">● EN VIVO</span></h1>
+    <div style="font-size:0.8rem; color:#8b949e; margin-top:4px;">Sistema de Predicción de Riesgos de Inundación Urbana</div>
+  </div>
+  <div class="meta">
+    <div>Última actualización</div>
+    <strong id="ts">2026-06-06 07:38 UTC</strong>
+    <div style="margin-top:4px;">Fuente: Open-Meteo + AquaInfer ML</div>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- KPIs -->
+  <div class="kpi-grid" id="kpis"></div>
+
+  <!-- Alertas -->
+  <div class="alerta-box" id="alertas" style="display:none">
+    <h3>⚠️ ALERTAS ACTIVAS — Alcaldías con Riesgo Muy Alto</h3>
+    <ul id="lista-alertas"></ul>
+  </div>
+
+  <!-- Tabla -->
+  <div class="section-title">Predicción por Alcaldía — Hoy</div>
+  <table id="tabla">
+    <thead>
+      <tr>
+        <th onclick="sortTable('alcaldia')">Alcaldía ↕</th>
+        <th onclick="sortTable('lluvia_mm')">Lluvia hoy ↕</th>
+        <th onclick="sortTable('rain_7d')">Acum. 7 días ↕</th>
+        <th onclick="sortTable('prob_lluvia')">Prob. lluvia intensa mañana ↕</th>
+        <th onclick="sortTable('nivel_riesgo')">Riesgo inundación ↕</th>
+        <th onclick="sortTable('nivel_riesgo')">Nivel ↕</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+
+  <div class="section-title">Distribución de Riesgo</div>
+  <div id="bars" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:32px;"></div>
+
+</div>
+
+<footer>
+  AquaInfer CDMX · Agente 1 (XGBoost Forecasting t+1) + Agente 2 (XGBoost Regressor) · Datos: Open-Meteo API · SPCGIR/CONAGUA 2019
+</footer>
+
+<script>
+const DATA = {"timestamp":"2026-06-06T07:38:33.307478Z","fecha":"2026-06-06","alcaldias":[{"alcaldia":"Iztapalapa","lluvia_mm":12.9,"rain_7d":50.8,"lluvia_intensa":1,"prob_lluvia":0.857,"nivel_riesgo":4.13,"nivel_cat":"Alto"},{"alcaldia":"Gustavo A. Madero","lluvia_mm":7.2,"rain_7d":44.8,"lluvia_intensa":1,"prob_lluvia":0.814,"nivel_riesgo":4.14,"nivel_cat":"Alto"},{"alcaldia":"Alvaro Obregon","lluvia_mm":6.5,"rain_7d":41.2,"lluvia_intensa":1,"prob_lluvia":0.868,"nivel_riesgo":1.04,"nivel_cat":"Muy bajo"},{"alcaldia":"Cuauhtemoc","lluvia_mm":5.7,"rain_7d":62.2,"lluvia_intensa":1,"prob_lluvia":0.85,"nivel_riesgo":4.97,"nivel_cat":"Muy alto"},{"alcaldia":"Tlalpan","lluvia_mm":8.4,"rain_7d":33.6,"lluvia_intensa":1,"prob_lluvia":0.873,"nivel_riesgo":2.01,"nivel_cat":"Bajo"},{"alcaldia":"Coyoacan","lluvia_mm":6.5,"rain_7d":41.2,"lluvia_intensa":1,"prob_lluvia":0.799,"nivel_riesgo":3.83,"nivel_cat":"Alto"},{"alcaldia":"Iztacalco","lluvia_mm":12.9,"rain_7d":50.8,"lluvia_intensa":1,"prob_lluvia":0.831,"nivel_riesgo":4.98,"nivel_cat":"Muy alto"},{"alcaldia":"Venustiano Carranza","lluvia_mm":5.7,"rain_7d":62.2,"lluvia_intensa":1,"prob_lluvia":0.774,"nivel_riesgo":4.96,"nivel_cat":"Muy alto"},{"alcaldia":"Azcapotzalco","lluvia_mm":8.8,"rain_7d":30.4,"lluvia_intensa":1,"prob_lluvia":0.821,"nivel_riesgo":4.78,"nivel_cat":"Muy alto"},{"alcaldia":"Xochimilco","lluvia_mm":17.1,"rain_7d":44.1,"lluvia_intensa":1,"prob_lluvia":0.894,"nivel_riesgo":2.95,"nivel_cat":"Medio"},{"alcaldia":"Tlahuac","lluvia_mm":13.0,"rain_7d":38.2,"lluvia_intensa":1,"prob_lluvia":0.789,"nivel_riesgo":4.28,"nivel_cat":"Alto"},{"alcaldia":"Benito Juarez","lluvia_mm":6.5,"rain_7d":41.2,"lluvia_intensa":1,"prob_lluvia":0.782,"nivel_riesgo":4.16,"nivel_cat":"Alto"},{"alcaldia":"Miguel Hidalgo","lluvia_mm":4.8,"rain_7d":46.2,"lluvia_intensa":1,"prob_lluvia":0.842,"nivel_riesgo":2.68,"nivel_cat":"Medio"},{"alcaldia":"Cuajimalpa de Morelos","lluvia_mm":17.4,"rain_7d":33.7,"lluvia_intensa":1,"prob_lluvia":0.92,"nivel_riesgo":0.99,"nivel_cat":"Muy bajo"},{"alcaldia":"La Magdalena Contreras","lluvia_mm":8.4,"rain_7d":33.6,"lluvia_intensa":1,"prob_lluvia":0.853,"nivel_riesgo":1.08,"nivel_cat":"Muy bajo"},{"alcaldia":"Milpa Alta","lluvia_mm":16.2,"rain_7d":34.9,"lluvia_intensa":1,"prob_lluvia":0.9,"nivel_riesgo":1.23,"nivel_cat":"Muy bajo"}]};
+
+const COLORES = {
+  'Muy alto': { clase: 'muy-alto', hex: '#f85149', emoji: '🔴' },
+  'Alto':     { clase: 'alto',     hex: '#d29922', emoji: '🟠' },
+  'Medio':    { clase: 'medio',    hex: '#e3b341', emoji: '🟡' },
+  'Bajo':     { clase: 'bajo',     hex: '#3fb950', emoji: '🟢' },
+  'Muy bajo': { clase: 'muy-bajo', hex: '#58a6ff', emoji: '🔵' },
+};
+
+let sortDir = {};
+let alcaldias = [...DATA.alcaldias].sort((a,b) => b.nivel_riesgo - a.nivel_riesgo);
+
+function renderKPIs() {
+  const conteo = {};
+  alcaldias.forEach(a => { conteo[a.nivel_cat] = (conteo[a.nivel_cat]||0) + 1; });
+  const maxLluvia = alcaldias.reduce((m,a) => a.lluvia_mm > m.lluvia_mm ? a : m);
+  const avgProb   = (alcaldias.reduce((s,a) => s + a.prob_lluvia, 0) / alcaldias.length * 100).toFixed(0);
+
+  const kpis = [
+    { label: 'Alcaldías Muy Alto', value: conteo['Muy alto']||0, cls: 'red' },
+    { label: 'Alcaldías Alto',     value: conteo['Alto']||0,     cls: 'orange' },
+    { label: 'Alcaldías Medio',    value: conteo['Medio']||0,    cls: 'yellow' },
+    { label: 'Alcaldías Bajo/Muy bajo', value: (conteo['Bajo']||0)+(conteo['Muy bajo']||0), cls: 'green' },
+    { label: 'Mayor lluvia hoy',   value: maxLluvia.lluvia_mm + ' mm', cls: 'blue', sub: maxLluvia.alcaldia },
+    { label: 'Prob. media lluvia', value: avgProb + '%', cls: 'blue' },
+  ];
+
+  document.getElementById('kpis').innerHTML = kpis.map(k =>
+    `<div class="kpi ${k.cls}">
+      <div class="value">${k.value}</div>
+      <div class="label">${k.label}</div>
+      ${k.sub ? `<div style="font-size:0.7rem;color:#58a6ff;margin-top:4px">${k.sub}</div>` : ''}
+    </div>`
+  ).join('');
+}
+
+function renderAlertas() {
+  const muyAltos = alcaldias.filter(a => a.nivel_cat === 'Muy alto');
+  const box = document.getElementById('alertas');
+  if (muyAltos.length === 0) { box.style.display='none'; return; }
+  box.style.display = 'block';
+  document.getElementById('lista-alertas').innerHTML = muyAltos.map(a =>
+    `<li><strong>${a.alcaldia}</strong> — Riesgo ${a.nivel_riesgo.toFixed(2)}/5.0 · Lluvia hoy: ${a.lluvia_mm}mm · Prob. mañana: ${(a.prob_lluvia*100).toFixed(0)}%</li>`
+  ).join('');
+}
+
+function renderTabla() {
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = alcaldias.map(a => {
+    const c = COLORES[a.nivel_cat] || COLORES['Medio'];
+    const barW = Math.round((a.nivel_riesgo / 5) * 100);
+    const probPct = (a.prob_lluvia * 100).toFixed(0);
+    return `<tr>
+      <td class="alcaldia-name">${c.emoji} ${a.alcaldia}</td>
+      <td>${a.lluvia_mm > 0 ? '🌧️ ' : ''}${a.lluvia_mm} mm</td>
+      <td>${a.rain_7d} mm</td>
+      <td>
+        <span class="prob-text">${probPct}%</span>
+        <div class="risk-bar-bg" style="margin-left:8px">
+          <div class="risk-bar-fill" style="width:${probPct}%;background:${probPct>70?'#f85149':probPct>50?'#d29922':'#3fb950'}"></div>
+        </div>
+      </td>
+      <td>
+        <span style="font-weight:bold;color:${c.hex}">${a.nivel_riesgo.toFixed(2)}</span>
+        <span style="color:#484f58;font-size:0.8rem"> / 5.0</span>
+        <div class="risk-bar-bg" style="margin-left:8px">
+          <div class="risk-bar-fill" style="width:${barW}%;background:${c.hex}"></div>
+        </div>
+      </td>
+      <td><span class="badge ${c.clase}">${a.nivel_cat.toUpperCase()}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderBars() {
+  const orden = ['Muy alto','Alto','Medio','Bajo','Muy bajo'];
+  const conteo = {};
+  alcaldias.forEach(a => { conteo[a.nivel_cat] = (conteo[a.nivel_cat]||[]).concat(a.alcaldia); });
+  document.getElementById('bars').innerHTML = orden.map(nivel => {
+    const lista = conteo[nivel] || [];
+    if (!lista.length) return '';
+    const c = COLORES[nivel];
+    return `<div style="background:#161b22;border:1px solid ${c.hex}33;border-radius:8px;padding:12px 16px;min-width:160px">
+      <div style="color:${c.hex};font-weight:bold;font-size:0.85rem;margin-bottom:8px">${c.emoji} ${nivel.toUpperCase()} (${lista.length})</div>
+      ${lista.map(n => `<div style="font-size:0.78rem;color:#8b949e;margin-bottom:2px">• ${n}</div>`).join('')}
+    </div>`;
+  }).join('');
+}
+
+function sortTable(col) {
+  sortDir[col] = !sortDir[col];
+  alcaldias.sort((a,b) => {
+    const va = a[col], vb = b[col];
+    if (typeof va === 'string') return sortDir[col] ? va.localeCompare(vb) : vb.localeCompare(va);
+    return sortDir[col] ? va - vb : vb - va;
+  });
+  renderTabla();
+}
+
+// Init
+document.getElementById('ts').textContent = DATA.timestamp.replace('T',' ').slice(0,16) + ' UTC';
+renderKPIs();
+renderAlertas();
+renderTabla();
+renderBars();
+</script>
+</body>
+</html>

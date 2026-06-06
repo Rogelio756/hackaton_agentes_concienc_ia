@@ -1,0 +1,36 @@
+{
+  "modelo": "XGBoostRegressor",
+  "version": "v2_regresion_clima",
+  "descripcion": "Predice riesgo_inund_mean (1.0-5.0) usando solo clima + alcaldia. Sin data leakage.",
+  "target": "riesgo_inund_mean",
+  "rmse": 0.011,
+  "mae": 0.0073,
+  "r2": 0.9999,
+  "roc_auc_bin": 1.0,
+  "umbral_binario": 3.0,
+  "year_split": 2000,
+  "features": [
+    "alcaldia_encoded",
+    "MONTH",
+    "DAY",
+    "RAINFALL",
+    "MAXT",
+    "MINT",
+    "rain_3d",
+    "rain_7d",
+    "rain_30d",
+    "temporada_lluvias"
+  ],
+  "feature_importance": {
+    "alcaldia_encoded": 0.8442000150680542,
+    "MAXT": 0.10760000348091125,
+    "MINT": 0.01489999983459711,
+    "rain_30d": 0.010400000028312206,
+    "temporada_lluvias": 0.008899999782443047,
+    "RAINFALL": 0.007000000216066837,
+    "MONTH": 0.00570000009611249,
+    "rain_3d": 0.0008999999845400453,
+    "rain_7d": 0.00039999998989515007,
+    "DAY": 9.999999747378752e-05
+  }
+}
