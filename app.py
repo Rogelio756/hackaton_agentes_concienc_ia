@@ -1,6 +1,7 @@
 """
 AquaInfer CDMX — API Principal
 FastAPI + Agente 3 integrado
+CDMX (16 alcaldías, modelos ML) + ZMVM (28 municipios, heurística)
 Desplegado en Railway
 """
 
@@ -18,10 +19,11 @@ from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 # ── Configuración ────────────────────────────────────────
-BASE     = Path(__file__).parent
-MODELOS  = BASE / 'modelos'
-REF_PATH = BASE / 'referencia_alcaldias.csv'
-STATE    = BASE / 'live_state_v2.json'
+BASE      = Path(__file__).parent
+MODELOS   = BASE / 'modelos'
+REF_PATH  = BASE / 'referencia_alcaldias.csv'
+ZMVM_PATH = BASE / 'referencia_zmvm.csv'
+STATE     = BASE / 'live_state_v2.json'
 INTERVALO = int(os.environ.get('INTERVALO_SEG', 300))
 
 NAME_MAP = {
@@ -72,7 +74,8 @@ with open(MODELOS / 'agente2' / 'agente2_xgboost_regressor.pkl', 'rb') as f:
     modelo_a2 = pickle.load(f)
 with open(MODELOS / 'agente2' / 'label_encoder_alcaldia.pkl', 'rb') as f:
     le_a2 = pickle.load(f)
-ref = pd.read_csv(REF_PATH)
+ref  = pd.read_csv(REF_PATH)
+zmvm = pd.read_csv(ZMVM_PATH)
 print("Modelos OK")
 
 FEAT_A1 = ['MONTH','DAY','RAINFALL','MAXT','MINT',
@@ -159,6 +162,49 @@ def generar_alerta(nombre, lluvia_mm, prob, nivel, rain_7d):
             alerta_reglas(nombre, lluvia_mm, prob, nivel, rain_7d))
 
 
+# ── Heurística ZMVM ─────────────────────────────────────
+def riesgo_heuristico(riesgo_base: int, lluvia_mm: float,
+                      rain_7d: float, mes: int) -> int:
+    """
+    Ajusta el riesgo base estático con señales climáticas en tiempo real.
+    Factores:
+      +1 si lluvia hoy >= 20mm (lluvia intensa confirmada)
+      +1 si acumulado 7d >= 50mm (semana muy lluviosa)
+      +1 si temporada de lluvias (may-oct) Y riesgo_base >= 3
+      -1 si no llueve nada y estamos fuera de temporada
+    Resultado clampado a [1, 5]
+    """
+    delta = 0
+    if lluvia_mm >= 20:
+        delta += 1
+    if rain_7d >= 50:
+        delta += 1
+    if 5 <= mes <= 10 and riesgo_base >= 3:
+        delta += 1
+    if lluvia_mm == 0 and rain_7d < 5 and not (5 <= mes <= 10):
+        delta -= 1
+    return max(1, min(5, riesgo_base + delta))
+
+
+def prob_lluvia_heuristica(lluvia_mm: float, rain_7d: float, mes: int) -> float:
+    """
+    Estima probabilidad de lluvia intensa mañana para municipios ZMVM
+    sin modelo ML entrenado, usando señales simples.
+    """
+    prob = 0.1
+    if 5 <= mes <= 10:
+        prob += 0.25
+    if lluvia_mm >= 10:
+        prob += 0.30
+    elif lluvia_mm >= 5:
+        prob += 0.15
+    if rain_7d >= 40:
+        prob += 0.15
+    elif rain_7d >= 20:
+        prob += 0.08
+    return round(min(prob, 0.95), 2)
+
+
 # ── Ciclo de predicción ──────────────────────────────────
 def run_ciclo():
     now = datetime.now(timezone.utc)
@@ -225,9 +271,48 @@ def run_ciclo():
                 'nivel_riesgo':0,'alerta':'Datos no disponibles temporalmente.'
             }
 
+    # ── ZMVM — heurística ────────────────────────────────
+    print("  Procesando municipios ZMVM...")
+    for _, row_z in zmvm.iterrows():
+        nombre_mun = row_z['municipio']
+        lat_z = row_z['lat']
+        lon_z = row_z['lon']
+        riesgo_base = int(row_z['riesgo_base'])
+        try:
+            url = (f'https://api.open-meteo.com/v1/forecast'
+                   f'?latitude={lat_z}&longitude={lon_z}'
+                   f'&daily=precipitation_sum,temperature_2m_max,temperature_2m_min'
+                   f'&timezone=America%2FMexico_City&past_days=30&forecast_days=1')
+            d = requests.get(url, timeout=10).json()['daily']
+            ll = d['precipitation_sum']
+
+            lluvia_mm_z = ll[-1] or 0.0
+            rain_7d_z   = sum(v or 0 for v in ll[-8:-1])
+            mes_z       = hoy.month
+
+            prob_z   = prob_lluvia_heuristica(lluvia_mm_z, rain_7d_z, mes_z)
+            nivel_z  = riesgo_heuristico(riesgo_base, lluvia_mm_z, rain_7d_z, mes_z)
+            alerta_z = generar_alerta(nombre_mun, round(lluvia_mm_z, 1),
+                                      prob_z, nivel_z, round(rain_7d_z, 1))
+
+            zones[nombre_mun] = {
+                'lluvia_mm'   : round(lluvia_mm_z, 1),
+                'prob_lluvia' : prob_z,
+                'nivel_riesgo': nivel_z,
+                'alerta'      : alerta_z,
+                'fuente'      : 'heuristica_zmvm',
+            }
+        except Exception as e:
+            print(f"  ERROR ZMVM {nombre_mun}: {e}")
+            zones[nombre_mun] = {
+                'lluvia_mm':0.0,'prob_lluvia':0.0,
+                'nivel_riesgo':riesgo_base,'alerta':'Datos no disponibles temporalmente.',
+                'fuente':'heuristica_zmvm',
+            }
+
     payload = {'timestamp': now.strftime('%Y-%m-%dT%H:%M:%SZ'), 'zones': zones}
     STATE.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding='utf-8')
-    print(f"  {len(zones)} zonas actualizadas OK")
+    print(f"  {len(zones)} zonas actualizadas OK (16 CDMX ML + {len(zones)-16} ZMVM heuristica)")
     return payload
 
 
@@ -242,9 +327,13 @@ def loop_background():
 
 # ── FastAPI ──────────────────────────────────────────────
 app = FastAPI(
-    title="AquaInfer CDMX API",
-    description="Sistema de predicción de riesgos de inundación urbana — Ciudad de México",
-    version="1.0.0"
+    title="AquaInfer CDMX + ZMVM API",
+    description=(
+        "Sistema de predicción de riesgos de inundación urbana. "
+        "CDMX: 16 alcaldías con modelos XGBoost entrenados. "
+        "ZMVM: 28 municipios con heurística climática en tiempo real."
+    ),
+    version="2.0.0"
 )
 
 app.add_middleware(
@@ -266,10 +355,11 @@ def root():
     return FileResponse(BASE / "dashboard.html")
 
 
-@app.get("/predict", summary="Predicciones en vivo para las 16 alcaldías")
+@app.get("/predict", summary="Predicciones en vivo — 16 alcaldías CDMX + 28 municipios ZMVM")
 def predict():
     """
-    Devuelve el JSON con timestamp + zones en el formato del frontend.
+    Devuelve timestamp + zones con todas las zonas metropolitanas.
+    CDMX: modelo XGBoost ML. ZMVM: heurística climática en tiempo real.
     Se actualiza automáticamente cada 5 minutos.
     """
     if STATE.exists():
@@ -290,6 +380,18 @@ def predict_zona(zona: str):
                 **data['zones'][zona]
             })
     return JSONResponse({'error': f'Zona "{zona}" no encontrada'}, status_code=404)
+
+
+@app.get("/zonas", summary="Lista de zonas disponibles")
+def zonas():
+    """Devuelve las zonas disponibles separadas por tipo de predicción."""
+    cdmx = list(NAME_MAP.values())
+    zmvm_list = zmvm['municipio'].tolist()
+    return {
+        'cdmx': {'total': len(cdmx), 'metodo': 'XGBoost ML', 'zonas': cdmx},
+        'zmvm': {'total': len(zmvm_list), 'metodo': 'heuristica_climatica', 'zonas': zmvm_list},
+        'total': len(cdmx) + len(zmvm_list)
+    }
 
 
 @app.get("/health", summary="Health check")
